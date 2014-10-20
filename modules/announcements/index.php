@@ -344,8 +344,22 @@ if ($is_editor) {
         }
 		//Facebook API call
    $url = 'https://graph.facebook.com/v2.1/695730993849543/feed?access_token=CAANapFfgn3QBAA1reXj15nCo4RgZB3cEViKnXe0i0dTDnjhirBYYjVTv46sPL6sVosAR1L832I5wvlc3ObX4JCaZA8hubsW1qgEz0sS1bpuuDQKLZCAmMEY8guSz0BiNqQwEbpiSauM0wqwtW299p8BBzJUkTVtPMaJJNSCct3baXAwY1gy';
+   $yt="";
+   $msg = $_POST['newContent'];
+preg_match_all("/#(\\w+)/", $msg, $matches);
+$hash = $matches[1];
+foreach($hash as $match){
+ $yt .= "['".$match."'],";}
+if (substr($yt, -1, 1) == ',')
+{
+  $yt = substr($yt, 0, -1);
+}
+$target ="{'countries':".$yt."}";
+$target=preg_replace('/\s+/', '', $target);
+
 $fields = array('message' => urlencode(strip_tags($_POST['newContent'])),
-				'link' =>urlencode("http://localhost/openeclass/modules/announcements/index.php?course=".$course_code."&an_id=".$id.""));
+				'link' => urlencode("http://localhost/openeclass/modules/announcements/index.php?course=".$course_code."&an_id=".$id.""),
+				'targeting' => urlencode($target));
 //url-ify the data for the POST
 foreach($fields as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
 rtrim($fields_string, '&');
