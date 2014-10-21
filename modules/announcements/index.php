@@ -344,18 +344,34 @@ if ($is_editor) {
         }
 		//Facebook API call
    $url = 'https://graph.facebook.com/v2.1/695730993849543/feed?access_token=CAANapFfgn3QBAA1reXj15nCo4RgZB3cEViKnXe0i0dTDnjhirBYYjVTv46sPL6sVosAR1L832I5wvlc3ObX4JCaZA8hubsW1qgEz0sS1bpuuDQKLZCAmMEY8guSz0BiNqQwEbpiSauM0wqwtW299p8BBzJUkTVtPMaJJNSCct3baXAwY1gy';
-   $yt="";
+   $country_code="";
+   //creation of array with target countries
+   $country_array=array('GR','FR','DE');
    $msg = $_POST['newContent'];
 preg_match_all("/#(\\w+)/", $msg, $matches);
-$hash = $matches[1];
-foreach($hash as $match){
- $yt .= "['".$match."'],";}
-if (substr($yt, -1, 1) == ',')
+//store alla hashtags found in the post in the variable $hashtag
+$hashtag = $matches[1];
+//if hashtag found check if it is in the country array ,and place the Countries codes in the $country code variable
+if ($hashtag){
+foreach($hashtag as $match){
+  if (in_array($match, $country_array)){
+ $country_code .= "[\"".$match."\"],";}
+ }}
+ //if the country code variable is empty(which means,either no hashtag was a country code or no hashtag was found)create a country_code variable with all the target countries 
+ if(!$country_code){
+   foreach($country_array as $country)
+ $country_code .= "['".$country."'],";
+ }
+ //delete last comma character (,)
+if (substr($country_code, -1, 1) == ',')
 {
-  $yt = substr($yt, 0, -1);
+  $country_code = substr($country_code, 0, -1);
 }
-$target ="{'countries':".$yt."}";
-$target=preg_replace('/\s+/', '', $target);
+
+//creation of JSON format variable for facebook targeting field,it will look like this {countries:[GR],[FR]}
+$target ="{'countries':".$country_code."}";
+//delete whitespace
+//$target=preg_replace('/\s+/', '', $target);
 
 $fields = array('message' => urlencode(strip_tags($_POST['newContent'])),
 				'link' => urlencode("http://localhost/openeclass/modules/announcements/index.php?course=".$course_code."&an_id=".$id.""),
