@@ -326,14 +326,16 @@ function add_assignment() {
     $max_grade = filter_input(INPUT_POST, 'max_grade', FILTER_VALIDATE_FLOAT);
     $assign_to_specific = filter_input(INPUT_POST, 'assign_to_specific', FILTER_VALIDATE_INT);
     $assigned_to = filter_input(INPUT_POST, 'ingroup', FILTER_VALIDATE_INT, FILTER_REQUIRE_ARRAY);
-    $secret = uniqid('');
+  	 $auto_judge = filter_input(INPUT_POST, 'auto_judge', FILTER_VALIDATE_INT);
+      $secret = uniqid('');
+
 
     if ($assign_to_specific == 1 && empty($assigned_to)) {
         $assign_to_specific = 0;
     }
     if (@mkdir("$workPath/$secret", 0777) && @mkdir("$workPath/admin_files/$secret", 0777, true)) {       
-        $id = Database::get()->query("INSERT INTO assignment (course_id, title, description, deadline, late_submission, comments, submission_date, secret_directory, group_submissions, max_grade, assign_to_specific) "
-                . "VALUES (?d, ?s, ?s, ?t, ?d, ?s, ?t, ?s, ?d, ?d, ?d)", $course_id, $title, $desc, $deadline, $late_submission, '', date("Y-m-d H:i:s"), $secret, $group_submissions, $max_grade, $assign_to_specific)->lastInsertID;
+        $id = Database::get()->query("INSERT INTO assignment (course_id, title, description, deadline, late_submission, comments, submission_date, secret_directory, group_submissions, max_grade, assign_to_specific, auto_judge) "
+                . "VALUES (?d, ?s, ?s, ?t, ?d, ?s, ?t, ?s, ?d, ?d, ?d, ?d)", $course_id, $title, $desc, $deadline, $late_submission, '', date("Y-m-d H:i:s"), $secret, $group_submissions, $max_grade, $assign_to_specific, $auto_judge)->lastInsertID;
         $secret = work_secret($id);
         if ($id) {
             $local_name = uid_to_name($uid);
@@ -421,9 +423,10 @@ function submit_work($id, $on_behalf_of = null) {
         }
     } //checks for submission validity end here
     
-    $row = Database::get()->querySingle("SELECT title, group_submissions FROM assignment WHERE course_id = ?d AND id = ?d", $course_id, $id);
+    $row = Database::get()->querySingle("SELECT title, group_submissions, auto_judge FROM assignment WHERE course_id = ?d AND id = ?d", $course_id, $id);
     $title = q($row->title);
     $group_sub = $row->group_submissions;
+    $auto_judge = $row->auto_judge;
     $nav[] = $works_url;
     $nav[] = array('url' => "$_SERVER[SCRIPT_NAME]?id=$id", 'name' => $title);
 
@@ -522,7 +525,33 @@ function submit_work($id, $on_behalf_of = null) {
         } else {
             $tool_content .= "<p class='caution'>$langUploadError<br /><a href='$_SERVER[SCRIPT_NAME]?course=$course_code'>$langBack</a></p><br />";
         }
-    } else { // not submit_ok
+if($auto_judge){   // Auto-judge: Send file to hackearth
+global $hackerEarthKey;
+$content = file_get_contents("$workPath/$filename");
+//set POST variables
+$url = 'http://api.hackerearth.com/code/run/';
+$fields = array('client_secret' => $hackerEarthKey, 'source' => $content, 'lang' => 'PYTHON');
+//url-ify the data for the POST
+foreach($fields as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
+rtrim($fields_string, '&');
+//open connection
+$ch = curl_init();
+//set the url, number of POST vars, POST data
+curl_setopt($ch,CURLOPT_URL, $url);
+curl_setopt($ch,CURLOPT_POST, count($fields));
+curl_setopt($ch,CURLOPT_POSTFIELDS, $fields_string);
+curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);
+//execute post
+$result = curl_exec($ch);
+$result = json_decode($result, true);
+$result['run_status']['output'] = trim($result['run_status']['output']);
+// Add the output as a comment
+submit_grade_comments($id, $sid, 10, 'Output: '.$result['run_status']['output'], false);
+}// End Auto-judge 
+
+} 
+
+else { // not submit_ok
         $tool_content .="<p class='caution'>$langExerciseNotPermit<br /><a href='$_SERVER[SCRIPT_NAME]?course=$course_code'>$langBack</a></p></br>";
     }
 }
@@ -569,7 +598,11 @@ function new_assignment() {
         <tr id='late_sub_row'". ((isset($_POST['WorkEnd'])) ? "" : "style=\"display:none\"") .">
                <th></th>
                <td><input type='checkbox' name='late_submission' value='1'>$m[late_submission_enable]</td>
-         </tr>          
+         </tr> 
+         <tr>
+          <th>Auto-judge:</th>
+          <td><input type='checkbox' id='auto_judge' name='auto_judge' value='1' checked='1' /></td>
+</tr>         
         <tr>
           <th>$m[group_or_user]:</th>
           <td><input type='radio' id='user_button' name='group_submissions' value='0' checked='1' /><label for='user_button'>$m[user_work]</label>
